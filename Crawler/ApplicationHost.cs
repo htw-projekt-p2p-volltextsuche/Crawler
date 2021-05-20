@@ -3,6 +3,7 @@ using Crawler.Domain.Entities;
 using Crawler.Exceptions;
 using Crawler.Protocols.Downloading;
 using Crawler.Protocols.Tracking;
+using Crawler.Text.Extraction;
 
 using Cronos;
 
@@ -23,14 +24,20 @@ namespace Crawler
         private readonly IServiceProvider _serviceProvider;
         private readonly IOptions<ApplicationOptions> _options;
         private readonly ILogger<ApplicationHost> _logger;
+        private readonly IEnumerable<ITextExtractor> _textExtractors;
         private readonly CronExpression _interval;
         private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
-        public ApplicationHost(IServiceProvider serviceProvider, IOptions<ApplicationOptions> options, ILogger<ApplicationHost> logger)
+        public ApplicationHost(
+            IServiceProvider serviceProvider,
+            IOptions<ApplicationOptions> options,
+            ILogger<ApplicationHost> logger,
+            IEnumerable<ITextExtractor> textExtractors)
         {
             _serviceProvider = serviceProvider;
             _options = options;
             _logger = logger;
+            _textExtractors = textExtractors;
 
             // Attempt to parse the cron expression
             try
@@ -124,13 +131,37 @@ namespace Crawler
 
                 try
                 {
-                    _logger.LogInformation($"Downloading {uri}..");
+                    _logger.LogInformation($"Working on {uri}.");
 
                     var protocolTexts = providerService.GetRawProtocolsAsync(uri, _cancellationTokenSource.Token);
 
                     await foreach (var protocolText in protocolTexts)
                     {
-                        _logger.LogInformation($"DEBUG: {protocolText.Substring(0, 20)}..");
+                        try
+                        {
+                            Protocol protocol = null;
+
+                            foreach (var extractor in _textExtractors)
+                            {
+                                if (extractor.HandlesProtocol(protocolText))
+                                {
+                                    protocol = await extractor.ParseRawProtocolAsync(protocolText);
+                                }
+                            }
+
+                            if (protocol == null)
+                            {
+                                _logger.LogWarning($"Found no text extractor that handles this protocol file!");
+                                continue;
+                            }
+
+                            // TODO: Insert into network and mark as done in mongodb
+                            await trackingService.MarkAsIndexedAsync(identifier);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, $"Failed to extract data.");
+                        }
                     }
                 }
                 catch (Exception ex)
