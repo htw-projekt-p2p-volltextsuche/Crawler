@@ -1,3 +1,9 @@
+## How to setup
+1. Make sure you have .NET 5.0 Runtime installed or higher.
+2. Clone the repository
+3. Edit the appsettings.json and add the required MongoDB connection string. Optionally adjust the indexing interval.
+4. Run the application with `dotnet run`
+
 ## Functionality
 The crawler downloads speeches from the official Bundestag website in regular, customizable intervals.
 
