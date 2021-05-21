@@ -38,9 +38,16 @@ namespace Crawler
                     logger.LogError(ex, "Could not migrate local database.");
                     throw new CrawlerException("Could not migrate local database.", ex);
                 }
-            }
 
-            await host.RunAsync();
+                try
+                {
+                    await host.RunAsync();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Fatal exception occurred.");
+                }
+            }
         }
 
         static IHostBuilder CreateHostBuilder(string[] args) =>
