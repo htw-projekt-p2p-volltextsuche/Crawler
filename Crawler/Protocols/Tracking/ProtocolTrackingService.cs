@@ -23,7 +23,11 @@ namespace Crawler.Protocols.Tracking
 
         public async Task MarkAsIndexedAsync(string identifier)
         {
-            _appDbContext.Pointers.RemoveRange(await _appDbContext.Pointers.Where(x => x.Identifier == identifier).ToListAsync());
+            var pointer = _appDbContext.Pointers.CreateProxy();
+
+            pointer.Identifier = identifier;
+
+            await _appDbContext.Pointers.AddAsync(pointer);
             await _appDbContext.SaveChangesAsync();
         }
 

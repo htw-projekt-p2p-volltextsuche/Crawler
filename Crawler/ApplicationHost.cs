@@ -1,6 +1,7 @@
 ﻿using Crawler.Configuration;
 using Crawler.Domain.Entities;
 using Crawler.Exceptions;
+using Crawler.Persistence.Mongo;
 using Crawler.Protocols.Downloading;
 using Crawler.Protocols.Tracking;
 using Crawler.Text.Extraction;
@@ -117,11 +118,15 @@ namespace Crawler
             var provider = scope.ServiceProvider;
             var providerService = provider.GetRequiredService<ProtocolProviderService>();
             var trackingService = provider.GetRequiredService<ProtocolTrackingService>();
+            var mongo = provider.GetRequiredService<MongoContext>();
 
+            // Get all protocol URIs and iterate
             await foreach (var uri in providerService.GetProtocolUrisAsync())
             {
+                // Assume the URI as the identifier for the purpose of determining whether this document has already been indexed
                 var identifier = uri;
 
+                // Skip already indexed documents
                 if (await trackingService.IsIndexedAsync(identifier))
                 {
                     _logger.LogInformation($"{uri} was already indexed, skipped.");
@@ -133,30 +138,44 @@ namespace Crawler
                 {
                     _logger.LogInformation($"Working on {uri}.");
 
+                    // Download the protocol or protocols (in case it is a zip)
                     var protocolTexts = providerService.GetRawProtocolsAsync(uri, _cancellationTokenSource.Token);
 
                     await foreach (var protocolText in protocolTexts)
                     {
                         try
                         {
-                            Protocol protocol = null;
+                            IEnumerable<Protocol> protocols = null;
 
+                            // Find a suitable text extractor for this protocol format
                             foreach (var extractor in _textExtractors)
                             {
-                                if (extractor.HandlesProtocol(protocolText))
+                                if (extractor.HandlesProtocolFile(protocolText))
                                 {
-                                    protocol = await extractor.ParseRawProtocolAsync(protocolText);
+                                    protocols = await extractor.ParseRawProtocolAsync(protocolText);
                                 }
                             }
 
-                            if (protocol == null)
+                            // If we haven't found a text extractor, maybe a new format was created for the protocols that we do not support yet?
+                            if (protocols == null)
                             {
                                 _logger.LogWarning($"Found no text extractor that handles this protocol file!");
                                 continue;
                             }
 
+                            // Generate GUIDs for each protocol
+                            foreach (var protocol in protocols)
+                            {
+                                protocol.Id = Guid.NewGuid().ToString();
+                            }
+
                             // TODO: Insert into network and mark as done in mongodb
-                            await trackingService.MarkAsIndexedAsync(identifier);
+                            //await trackingService.MarkAsIndexedAsync(identifier);
+
+                            //foreach (var protocol in protocols)
+                            //{
+                            //    await mongo.AddProtocolAsync(protocol);
+                            //}
                         }
                         catch (Exception ex)
                         {

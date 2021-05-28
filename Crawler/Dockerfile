@@ -5,6 +5,12 @@ WORKDIR /app
 
 FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
 WORKDIR /src
+
+# Copy python files used for extraction
+COPY ["rede.py", ""]
+COPY ["text-extraction19.py", ""]
+
+# Copy and build project
 COPY ["Crawler/Crawler.csproj", "Crawler/"]
 RUN dotnet restore "Crawler/Crawler.csproj"
 COPY . .
@@ -17,4 +23,9 @@ RUN dotnet publish "Crawler.csproj" -c Release -o /app/publish
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+
+# Install python
+RUN apt-get update -y && apt-get upgrade -y
+RUN apt-get install -y python
+
 ENTRYPOINT ["dotnet", "Crawler.dll"]

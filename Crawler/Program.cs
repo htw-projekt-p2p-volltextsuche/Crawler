@@ -3,7 +3,9 @@ using Crawler.Exceptions;
 using Crawler.Persistence.Local;
 using Crawler.Persistence.Mongo;
 using Crawler.Protocols.Downloading;
+using Crawler.Protocols.Extraction;
 using Crawler.Protocols.Tracking;
+using Crawler.Text.Extraction;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -35,7 +37,6 @@ namespace Crawler
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Could not migrate local database.");
                     throw new CrawlerException("Could not migrate local database.", ex);
                 }
 
@@ -76,6 +77,9 @@ namespace Crawler
 
                     // Service to find and download protocols
                     services.AddScoped<ProtocolProviderService>();
+
+                    // Text extractor services
+                    services.AddScoped<ITextExtractor, NineteenTextExtractor>();
                 })
                 .ConfigureAppConfiguration((context, configuration) =>
                 {
@@ -89,7 +93,7 @@ namespace Crawler
                     // Allow overwrites via env variables
                     configuration.AddEnvironmentVariables();
 
-                    // Allow rewrites via command line arguments with highest priority
+                    // Allow overwrites via command line arguments with highest priority
                     configuration.AddCommandLine(args);
                 })
                 .ConfigureLogging((context, logging) =>
