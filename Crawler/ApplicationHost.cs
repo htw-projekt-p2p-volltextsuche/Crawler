@@ -169,13 +169,14 @@ namespace Crawler
                                 protocol.Id = Guid.NewGuid().ToString();
                             }
 
-                            // TODO: Insert into network and mark as done in mongodb
-                            //await trackingService.MarkAsIndexedAsync(identifier);
+                            await trackingService.MarkAsIndexedAsync(identifier);
 
-                            //foreach (var protocol in protocols)
-                            //{
-                            //    await mongo.AddProtocolAsync(protocol);
-                            //}
+                            foreach (var protocol in protocols)
+                            {
+                                await mongo.AddProtocolAsync(protocol);
+
+                                _logger.LogInformation($"Added protocol {protocol.Id} (speaker: {protocol.Speaker}, affiliation: {protocol.Affiliation}).");
+                            }
                         }
                         catch (Exception ex)
                         {
