@@ -4,6 +4,7 @@ using Crawler.Persistence.Local;
 using Crawler.Persistence.Mongo;
 using Crawler.Protocols.Downloading;
 using Crawler.Protocols.Extraction;
+using Crawler.Protocols.Indexing;
 using Crawler.Protocols.Tracking;
 using Crawler.Text.Extraction;
 
@@ -77,6 +78,9 @@ namespace Crawler
 
                     // Service to find and download protocols
                     services.AddScoped<ProtocolProviderService>();
+
+                    // Indexing api
+                    services.AddScoped<IndexApi>();
 
                     // Text extractor services
                     services.AddScoped<ITextExtractor, NineteenTextExtractor>();

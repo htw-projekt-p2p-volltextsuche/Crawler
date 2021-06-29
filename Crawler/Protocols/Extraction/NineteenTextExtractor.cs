@@ -32,7 +32,7 @@ namespace Crawler.Protocols.Extraction
 
                 ProcessStartInfo psi = new()
                 {
-                    FileName = "python",
+                    FileName = "python3",
                     Arguments = $"text-extraction19.py {inputFile}"
                 };
 

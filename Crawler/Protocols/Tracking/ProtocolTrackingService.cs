@@ -31,6 +31,17 @@ namespace Crawler.Protocols.Tracking
             await _appDbContext.SaveChangesAsync();
         }
 
+        public async Task UnmarkAsIndexedAsync(string identifier)
+        {
+            var pointer = await _appDbContext.Pointers.FirstOrDefaultAsync(x => x.Identifier == identifier);
+
+            if (pointer == null) return;
+
+            _appDbContext.Pointers.Remove(pointer);
+
+            await _appDbContext.SaveChangesAsync();
+        }
+
         //private string Hash(string text)
         //{
         //    using (SHA1Managed sha1 = new SHA1Managed())

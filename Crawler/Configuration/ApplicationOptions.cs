@@ -10,5 +10,9 @@
 
         // Local database
         public string LocalDbConnectionString { get; set; }
+
+
+        // Indexing
+        public string IndexingApiEndpoint { get; set; }
     }
 }

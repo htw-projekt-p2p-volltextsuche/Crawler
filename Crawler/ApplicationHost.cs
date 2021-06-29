@@ -3,6 +3,7 @@ using Crawler.Domain.Entities;
 using Crawler.Exceptions;
 using Crawler.Persistence.Mongo;
 using Crawler.Protocols.Downloading;
+using Crawler.Protocols.Indexing;
 using Crawler.Protocols.Tracking;
 using Crawler.Text.Extraction;
 
@@ -118,6 +119,7 @@ namespace Crawler
             var provider = scope.ServiceProvider;
             var providerService = provider.GetRequiredService<ProtocolProviderService>();
             var trackingService = provider.GetRequiredService<ProtocolTrackingService>();
+            var indexApi = provider.GetRequiredService<IndexApi>();
             var mongo = provider.GetRequiredService<MongoContext>();
 
             // Get all protocol URIs and iterate
@@ -169,13 +171,32 @@ namespace Crawler
                                 protocol.Id = Guid.NewGuid().ToString();
                             }
 
-                            await trackingService.MarkAsIndexedAsync(identifier);
-
-                            foreach (var protocol in protocols)
+                            try
                             {
-                                await mongo.AddProtocolAsync(protocol);
+                                await trackingService.MarkAsIndexedAsync(identifier);
 
-                                _logger.LogInformation($"Added protocol {protocol.Id} (speaker: {protocol.Speaker}, affiliation: {protocol.Affiliation}).");
+                                foreach (var protocol in protocols)
+                                {
+                                    // Save the text in full for easy access by the frontend to display to the user
+                                    await mongo.AddProtocolAsync(protocol);
+
+                                    _logger.LogInformation($"Added protocol {protocol.Id} (speaker: {protocol.Speaker}, affiliation: {protocol.Affiliation}).");
+                                }
+
+                                // Send the procotols to the indexing api
+                                await indexApi.IndexAsync(protocols);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Error occurred while attempting to save protocols to the storages. View the enclosed exception for more details. Changes have been rolled back.");
+
+                                // Cleanup mongo db
+                                foreach (var protocol in protocols)
+                                {
+                                    await mongo.RemoveProtocolAsync(protocol);
+                                }
+
+                                await trackingService.UnmarkAsIndexedAsync(identifier);
                             }
                         }
                         catch (Exception ex)

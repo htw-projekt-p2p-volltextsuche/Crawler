@@ -25,7 +25,7 @@ WORKDIR /app
 COPY --from=publish /app/publish .
 
 # Install python
-RUN apt-get update -y && apt-get upgrade -y
-RUN apt-get install -y python
+RUN apt-get update -y
+RUN apt-get install -y python3
 
 ENTRYPOINT ["dotnet", "Crawler.dll"]

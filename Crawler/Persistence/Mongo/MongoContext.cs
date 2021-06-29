@@ -29,5 +29,10 @@ namespace Crawler.Persistence.Mongo
         {
             await _protocols.InsertOneAsync(protocol);
         }
+
+        public async Task RemoveProtocolAsync(Protocol protocol)
+        {
+            await _protocols.DeleteOneAsync(x => x.Id == protocol.Id);
+        }
     }
 }
