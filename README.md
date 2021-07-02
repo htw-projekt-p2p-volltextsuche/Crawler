@@ -14,6 +14,24 @@ Application settings can be changed either by mounting a `appsettings.json` file
 - If mounting a `appsettings.json` file, mount it to `/app/appsettings.json` inside the container.
 - If configuring via environment variables, use the names of the option inside the `appsettings.json` as the environment variable name, e.g. `IndexingApiEndpoint` or `Interval`.
 
+#### Default appsettings.json
+```jsonc
+{
+  "Interval": "* * * * *",
+
+  // Database which will be used to save speeches
+  "MongoConnectionString": "mongodb://localhost:27017",
+  "MongoDatabase": "crawler",
+  "MongoCollection": "protocols",
+
+  // Database that is used to determine which documents of the Bundestag have already been indexed
+  "LocalDbConnectionString": "Data Source=local.db",
+
+  // Indexing api endpoint (without a trailing slash!)
+  "IndexingApiEndpoint": "http://localhost:8421/api"
+}
+```
+
 ## Functionality
 The crawler downloads speeches from the official Bundestag website in regular, customizable intervals.
 
