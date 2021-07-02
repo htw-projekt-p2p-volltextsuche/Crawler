@@ -15,7 +15,7 @@ namespace Crawler.Protocols.Extraction
     {
         public bool HandlesProtocolFile(string text)
         {
-            return true;
+            return text.Contains("<!DOCTYPE dbtplenarprotokoll SYSTEM \"dbtplenarprotokoll.dtd\">");
         }
 
         public async Task<IEnumerable<Protocol>> ParseRawProtocolAsync(string text)

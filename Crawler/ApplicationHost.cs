@@ -16,6 +16,7 @@ using Microsoft.Extensions.Options;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -171,9 +172,13 @@ namespace Crawler
                                 protocol.Id = Guid.NewGuid().ToString();
                             }
 
+                            _logger.LogInformation($"{protocols.Count()} protocols have been extracted.");
+
                             try
                             {
                                 await trackingService.MarkAsIndexedAsync(identifier);
+
+                                _logger.LogInformation($"Saving protocols to MongoDB storage..");
 
                                 foreach (var protocol in protocols)
                                 {
