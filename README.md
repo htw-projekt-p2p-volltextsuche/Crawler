@@ -20,7 +20,7 @@ Application settings can be changed either by mounting a `appsettings.json` file
   "Interval": "* * * * *",
 
   // Database which will be used to save speeches
-  "MongoConnectionString": "mongodb://localhost:27017",
+  "MongoConnectionString": "mongodb://localhost:8430",
   "MongoDatabase": "crawler",
   "MongoCollection": "protocols",
 
