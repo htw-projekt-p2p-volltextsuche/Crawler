@@ -22,7 +22,7 @@ namespace Crawler.Persistence.Mongo
 
             _mongoClient = new MongoClient(_options.Value.MongoConnectionString);
             _database = _mongoClient.GetDatabase(_options.Value.MongoDatabase);
-            _protocols = _database.GetCollection<Protocol>("protocols");
+            _protocols = _database.GetCollection<Protocol>(_options.Value.MongoCollection);
         }
 
         public async Task AddProtocolAsync(Protocol protocol)
