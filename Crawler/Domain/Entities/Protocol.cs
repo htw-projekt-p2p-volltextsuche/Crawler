@@ -7,7 +7,7 @@ namespace Crawler.Domain.Entities
     public class Protocol
     {
         [BsonId]
-        [JsonPropertyName("id")]
+        [JsonPropertyName("doc_id")]
         public string Id { get; set; }
 
         [JsonPropertyName("title")]
