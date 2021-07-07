@@ -4,6 +4,8 @@
     {
         public string Interval { get; set; }
 
+        public long InitialDelay { get; set; }
+
         // MongoDb
         public string MongoConnectionString { get; set; }
         public string MongoDatabase { get; set; }

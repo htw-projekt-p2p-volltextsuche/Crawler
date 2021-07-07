@@ -69,6 +69,21 @@ namespace Crawler
 
         public async Task RunAsync()
         {
+            if (_options.Value.InitialDelay >= 0)
+            {
+                _logger.LogInformation($"Waiting for {_options.Value.InitialDelay} second(s) before entering indexing schedule.");
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(_options.Value.InitialDelay), cancellationToken: _cancellationTokenSource.Token);
+                }
+                catch
+                {
+                    // Error or the cancellation token was cancelled, either way, exit the function
+                    return;
+                }
+            }
+
             while (!_cancellationTokenSource.IsCancellationRequested)
             {
                 var next = _interval.GetNextOccurrence(DateTimeOffset.Now, TimeZoneInfo.Local);
