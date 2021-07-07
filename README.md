@@ -28,7 +28,7 @@ Application settings can be changed either by mounting a `appsettings.json` file
   "LocalDbConnectionString": "Data Source=local.db",
 
   // Indexing api endpoint (without a trailing slash!)
-  "IndexingApiEndpoint": "http://localhost:8421/api"
+  "IndexingApiEndpoint": "http://0.0.0.0:8421/api"
 }
 ```
 
