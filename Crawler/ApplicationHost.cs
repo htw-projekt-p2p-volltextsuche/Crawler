@@ -179,7 +179,7 @@ namespace Crawler
                         continue;
                     }
 
-                    _logger.LogInformation($"Working on {uri}.");
+                    _logger.LogInformation($"Working on {uri}..");
 
                     // We might get back multiple protocol files here, because the download might be a zip!
                     _logger.LogInformation($"Downloading from uri and extracting..");
