@@ -1,12 +1,19 @@
-## How to setup
-1. Make sure you have .NET 5.0 Runtime installed or higher.
-2. Clone the repository
-3. Edit the appsettings.json and add the required MongoDB connection string. Optionally adjust the indexing interval.
-4. Run the application with `dotnet run`
+## Functionality
+The crawler downloads speeches from the official Bundestag website in regular, customizable intervals.
 
-## Docker compose setup
+The speeches are processed through seperate executables and the returned results inserted into the P2P network for indexing. Only the time periods >= 18 are supported. Time periods below 18 will be skipped.
+
+## How to run without Docker
+1. Make sure you have .NET 5.0 SDK installed or higher.
+1. Clone the repository
+1. Build the application with `dotnet publish ./Crawler -c Release`
+1. Switch to the build directory `./Crawler/bin/Release/net5.0/publish`
+1. Edit `appsettings.json` and add the required MongoDB connection string `MongoConnectionString` aswell as the endpoint to the indexing API `IndexingApiEndpoint`. Optionally adjust the indexing interval.
+1. Run the application `./Crawler.exe`
+
+## Running with Docker Compose
 ### Persistent mounting points
-- The path `/app/local.db` (by default) needs to be persisted to the host for tracking which protocols have already been indexed to work.
+- The path `/app/data/` (by default) needs to be persisted to the host for tracking which protocols have already been indexed to work.
 
 ### Application settings
 Application settings can be changed either by mounting a `appsettings.json` file into the container or by environment variables.
@@ -17,7 +24,11 @@ Application settings can be changed either by mounting a `appsettings.json` file
 #### Default appsettings.json
 ```jsonc
 {
+  // Interval (CRON Expression) in which the Bundestag website will be crawled
   "Interval": "* * * * *",
+
+  // One time delay in seconds before the Crawler will evaluate the interval CRON expression and run according to the given "Interval" schedule
+  "InitialDelay": 0,
 
   // Database which will be used to save speeches
   "MongoConnectionString": "mongodb://localhost:8430",
@@ -25,17 +36,12 @@ Application settings can be changed either by mounting a `appsettings.json` file
   "MongoCollection": "protocols",
 
   // Database that is used to determine which documents of the Bundestag have already been indexed
-  "LocalDbConnectionString": "Data Source=local.db",
+  "LocalDbConnectionString": "Data Source=data/local.db",
 
   // Indexing api endpoint (without a trailing slash!)
   "IndexingApiEndpoint": "http://0.0.0.0:8421/api"
 }
 ```
-
-## Functionality
-The crawler downloads speeches from the official Bundestag website in regular, customizable intervals.
-
-The speeches are processed through seperate executables and the returned results inserted into the P2P network for indexing.
 
 ## External Specifications
 ### MongoDB speech document
@@ -56,7 +62,7 @@ The crawler connects to a MongoDB database for easy access of extracted speeches
     "affiliation": "string",
 
     // Date of the speech in the format dd.mm.yyyy
-    "date": "dd.mm.yyyy",
+    "date": "dd-mm-yyyy",
 
     // Entire processed content of the speech.
     "text": "string"
