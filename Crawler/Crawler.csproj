@@ -36,6 +36,9 @@
     <None Update="text-extraction19.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="textextraction-18.jar">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="title_shortener.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

@@ -84,6 +84,7 @@ namespace Crawler
 
                     // Text extractor services
                     services.AddScoped<ITextExtractor, NineteenTextExtractor>();
+                    services.AddScoped<ITextExtractor, EighteenAndPriorTextExtractor>();
                 })
                 .ConfigureAppConfiguration((context, configuration) =>
                 {

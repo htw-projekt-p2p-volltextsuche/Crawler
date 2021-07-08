@@ -17,6 +17,7 @@ using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -141,93 +142,108 @@ namespace Crawler
             // Get all protocol URIs and iterate
             await foreach (var uri in providerService.GetProtocolUrisAsync())
             {
+                // All protocols that were extracted from this specific text file.
+                List<Protocol> allProtocolsOfContainer = new List<Protocol>();
+
                 // Assume the URI as the identifier for the purpose of determining whether this document has already been indexed
                 var identifier = uri;
 
-                // Skip already indexed documents
-                if (await trackingService.IsIndexedAsync(identifier))
-                {
-                    _logger.LogInformation($"{uri} was already indexed, skipped.");
+                // Check if this is the data of timeperiod we do not support
+                const string pattern = @"pp(\d+)-data\.zip";
+                var match = Regex.Match(uri, pattern);
 
-                    continue;
+                if (match.Success)
+                {
+                    try
+                    {
+                        var period = int.Parse(match.Groups[1].Value);
+
+                        if (period < 18)
+                        {
+                            _logger.LogInformation($"Skipping {uri} because it is of an unsupported older time period.");
+                            continue;
+                        }
+                    }
+                    catch
+                    {
+                    }
                 }
 
                 try
                 {
+                    // Skip already indexed documents
+                    if (await trackingService.IsIndexedAsync(identifier))
+                    {
+                        _logger.LogInformation($"{identifier} was already indexed, skipped.");
+
+                        continue;
+                    }
+
                     _logger.LogInformation($"Working on {uri}.");
 
-                    // Download the protocol or protocols (in case it is a zip)
-                    var protocolTexts = providerService.GetRawProtocolsAsync(uri, _cancellationTokenSource.Token);
+                    // We might get back multiple protocol files here, because the download might be a zip!
+                    _logger.LogInformation($"Downloading from uri and extracting..");
+                    var protocolFileContents = providerService.GetRawProtocolsAsync(uri, _cancellationTokenSource.Token);
 
-                    await foreach (var protocolText in protocolTexts)
+                    await foreach ((var protocolFileName, var protocolFileContent) in protocolFileContents)
                     {
-                        try
+                        _logger.LogInformation($"Working on file {protocolFileName}..");
+
+                        // All protocols that were extracted from this specific text file.
+                        IEnumerable<Protocol> protocols = new List<Protocol>();
+
+                        // Find a suitable text extractor for this protocol format
+                        foreach (var extractor in _textExtractors)
                         {
-                            IEnumerable<Protocol> protocols = null;
-
-                            // Find a suitable text extractor for this protocol format
-                            foreach (var extractor in _textExtractors)
+                            if (extractor.HandlesProtocolFile(protocolFileContent))
                             {
-                                if (extractor.HandlesProtocolFile(protocolText))
-                                {
-                                    protocols = await extractor.ParseRawProtocolAsync(protocolText);
-                                }
-                            }
-
-                            // If we haven't found a text extractor, maybe a new format was created for the protocols that we do not support yet?
-                            if (protocols == null)
-                            {
-                                _logger.LogWarning($"Found no text extractor that handles this protocol file!");
-                                continue;
-                            }
-
-                            // Generate GUIDs for each protocol
-                            foreach (var protocol in protocols)
-                            {
-                                protocol.Id = Guid.NewGuid().ToString();
-                            }
-
-                            _logger.LogInformation($"{protocols.Count()} protocols have been extracted.");
-
-                            try
-                            {
-                                await trackingService.MarkAsIndexedAsync(identifier);
-
-                                _logger.LogInformation($"Saving protocols to MongoDB storage..");
-
-                                foreach (var protocol in protocols)
-                                {
-                                    // Save the text in full for easy access by the frontend to display to the user
-                                    await mongo.AddProtocolAsync(protocol);
-
-                                    _logger.LogInformation($"Added protocol {protocol.Id} (speaker: {protocol.Speaker}, affiliation: {protocol.Affiliation}).");
-                                }
-
-                                // Send the procotols to the indexing api
-                                await indexApi.IndexAsync(protocols);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Error occurred while attempting to save protocols to the storages. View the enclosed exception for more details. Changes have been rolled back.");
-
-                                // Cleanup mongo db
-                                foreach (var protocol in protocols)
-                                {
-                                    await mongo.RemoveProtocolAsync(protocol);
-                                }
-
-                                await trackingService.UnmarkAsIndexedAsync(identifier);
+                                protocols = await extractor.ParseRawProtocolAsync(protocolFileContent);
                             }
                         }
-                        catch (Exception ex)
+
+                        // If we haven't found a text extractor, maybe a new format was created for the protocols that we do not support yet?
+                        if (protocols == null)
                         {
-                            _logger.LogError(ex, $"Failed to extract data.");
+                            throw new CrawlerException($"Found no text extractor that handles this protocol file!");
                         }
+
+                        _logger.LogInformation($"Extracted {protocols.Count()} protocols from file {protocolFileName}.");
+                        allProtocolsOfContainer.AddRange(protocols);
                     }
+
+                    _logger.LogInformation($"{allProtocolsOfContainer.Count()} protocols have been extracted in total from {uri}.");
+                    _logger.LogInformation($"Saving protocols to MongoDB storage..");
+
+                    foreach (var protocol in allProtocolsOfContainer)
+                    {
+                        protocol.Id = Guid.NewGuid().ToString();
+
+                        await mongo.AddProtocolAsync(protocol);
+                    }
+
+                    // Send the procotols to the indexing api
+                    _logger.LogInformation($"Saving protocols to indexing cluster..");
+                    await indexApi.IndexAsync(allProtocolsOfContainer);
+
+
+                    // Mark this uri as done so we skip it entirely next time
+                    _logger.LogInformation($"Marking {uri} has completely indexed..");
+                    await trackingService.MarkAsIndexedAsync(identifier);
+
+                    _logger.LogInformation($"Completed work on {uri}.");
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, $"Indexing of {uri} failed. Documents of this resource have not been indexed.");
+                    // Cleanup mongo db from all protocols we might have already saved
+                    foreach (var protocol in allProtocolsOfContainer)
+                    {
+                        await mongo.RemoveProtocolAsync(protocol);
+                    }
+
+                    // Make sure we will attempt to index again next time
+                    await trackingService.UnmarkAsIndexedAsync(identifier);
+
+                    _logger.LogError(ex, $"Error occurred while attempting to work on the protocols file(s) of {uri}. View the enclosed exception for more details. MongoDB and local tracking database have been rolled back.");
                 }
             }
         }

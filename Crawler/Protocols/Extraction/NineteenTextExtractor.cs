@@ -2,6 +2,8 @@
 using Crawler.Exceptions;
 using Crawler.Text.Extraction;
 
+using Microsoft.Extensions.Logging;
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -13,6 +15,13 @@ namespace Crawler.Protocols.Extraction
 {
     public class NineteenTextExtractor : ITextExtractor
     {
+        private readonly ILogger<NineteenTextExtractor> _logger;
+
+        public NineteenTextExtractor(ILogger<NineteenTextExtractor> logger)
+        {
+            _logger = logger;
+        }
+
         public bool HandlesProtocolFile(string text)
         {
             return text.Contains("<!DOCTYPE dbtplenarprotokoll SYSTEM \"dbtplenarprotokoll.dtd\">");
@@ -20,7 +29,7 @@ namespace Crawler.Protocols.Extraction
 
         public async Task<IEnumerable<Protocol>> ParseRawProtocolAsync(string text)
         {
-            var tmpDirectory = "./tmp";
+            var tmpDirectory = "./19-tmp";
             Directory.CreateDirectory(tmpDirectory);
 
             var inputFile = Path.Combine(tmpDirectory, "file.xml");
@@ -36,9 +45,11 @@ namespace Crawler.Protocols.Extraction
                     Arguments = $"text-extraction19.py {inputFile}"
                 };
 
+                _logger.LogInformation(Environment.NewLine + "---------- OUTPUT OF EXTRACTOR ---------- " + Environment.NewLine);
                 Process p = Process.Start(psi);
 
                 await p.WaitForExitAsync();
+                _logger.LogInformation(Environment.NewLine + "----------------------------------------- " + Environment.NewLine);
 
                 if (p.ExitCode != 0)
                 {

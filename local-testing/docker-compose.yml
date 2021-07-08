@@ -2,11 +2,12 @@ version: '3.1'
 
 services:
   crawler:
-    image: crawler:latest
+    build: ../.
     depends_on:
       - "mongo"
     volumes:
       - "./appsettings.json:/app/appsettings.json"
+      - "./data:/app/data"
 
   mongo:
     image: mongo

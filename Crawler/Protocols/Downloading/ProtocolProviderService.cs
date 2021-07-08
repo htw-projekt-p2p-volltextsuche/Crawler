@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -98,7 +99,7 @@ namespace Crawler.Protocols.Downloading
             }
         }
 
-        public async IAsyncEnumerable<string> GetRawProtocolsAsync(string uri, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        public async IAsyncEnumerable<(string FileName, string Content)> GetRawProtocolsAsync(string uri, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             var httpClient = new HttpClient();
 
@@ -117,7 +118,7 @@ namespace Crawler.Protocols.Downloading
 
             if (isXml)
             {
-                yield return await response.Content.ReadAsStringAsync(cancellationToken);
+                yield return (uri.Split("/").Last(), await response.Content.ReadAsStringAsync(cancellationToken));
             }
             else if (isZip)
             {
@@ -137,7 +138,7 @@ namespace Crawler.Protocols.Downloading
 
                     foreach (var file in files)
                     {
-                        yield return await File.ReadAllTextAsync(file);
+                        yield return (Path.GetFileName(file), await File.ReadAllTextAsync(file));
                     }
                 }
                 finally
