@@ -29,13 +29,29 @@ def extract_name_of_redner(node):
 
 def get_inhaltspunkte(dokument):
     result = []
+    tmp =  []
 
-    tmp = dokument.findall(".//ivz-block")
+    blocks = dokument.find(".//inhaltsverzeichnis")
 
-    for i in tmp:
-        if i[0].text[-1] == ":":
-            result.append(i)
+    for idx, i in enumerate(blocks):
+        if i.tag == "ivz-block":# and i[0].text[-1] == ":":
+            tmp.append(i)
+        elif i.tag == "ivz-eintrag" and i[0].text == "in Verbindung mit":
+            tmp.append("+")
 
+
+    to_merge = []
+    for idx, i in enumerate(tmp):
+        if i == "+":
+            continue
+        elif idx+1 < len(tmp) and tmp[idx+1] == "+":
+            to_merge.append(i)
+        elif i.findall(".//redner"):
+            to_merge.append(i)
+            result.append(to_merge)
+            to_merge = []
+        else:
+            continue
     return result
 
 def get_inhaltstitel(inhaltspunkt):
@@ -44,7 +60,7 @@ def get_inhaltstitel(inhaltspunkt):
     for i in inhaltspunkt.findall("./ivz-eintrag"):
         if len(i) == 1:
             result += " " + i[0].text
-            
+        
     return result
 
 def get_reden(inhaltspunkt, datum):
@@ -52,16 +68,27 @@ def get_reden(inhaltspunkt, datum):
 
     reden = []
 
-    for i in inhaltspunkt.findall("./ivz-eintrag"):
-        if len(i) == 2 and len(i[0]) == 1:
-            reden.append(i)
+    ipunkt = inhaltspunkt[-1]
+
+    if len(inhaltspunkt) == 1:
+        title = get_inhaltstitel(ipunkt)
+        title_long = title
+    else:
+        title = get_inhaltstitel(inhaltspunkt[0])
+        title_long = " in Verbindung mit ".join([get_inhaltstitel(i) for i in inhaltspunkt])
+
+    for punkt in inhaltspunkt:
+        for i in punkt.findall("./ivz-eintrag"):
+            if len(i) == 2 and len(i[0]) == 1:
+                reden.append(i)
 
     for i in reden:
         rede_id = i.find(".//xref")
 
         if rede_id != None:
             rid = rede_id.get("rid")
-            rede = r.rede(get_inhaltstitel(inhaltspunkt), datum)
+            rede = r.rede(title, datum)
+            rede.title = title_long
             result[rid] = rede
     
     return result

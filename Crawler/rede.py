@@ -27,7 +27,7 @@ class rede:
         return kategorie, inhalt
 
     def remove_prefix(self, title):
-        startwords = ["Antrag", "Beschlussempfehlung", "Unterrichtung", "Aktuelle"]
+        startwords = ["Antrag", "Beschlussempfehlung", "Unterrichtung", "Aktuelle", "Wahlvorschlag"]
         stopwords = ["zum"]
 
         split = title.split()
@@ -35,10 +35,8 @@ class rede:
         stoppoint = 0
         for i in range(0, len(split)):
             if split[i] in startwords:
-                print("startword = " + split[i])
                 for j in range(i, len(split)):
                     if split[j][-1] == ":" or split[j] in stopwords:
-                        print("stopword = " + split[j])
                         stoppoint = j
                         startpoint = i
                         break
@@ -47,7 +45,6 @@ class rede:
             return title
 
         result = " ".join(split[:startpoint]) +  " ".join(split[stoppoint+1:])
-        print("restult = " + result)
         return result
 
 
