@@ -1,11 +1,17 @@
 #See https://aka.ms/containerfastmode to understand how Visual Studio uses this Dockerfile to build your images for faster debugging.
 
-FROM mcr.microsoft.com/dotnet/runtime:5.0 AS base
-WORKDIR /app
+FROM python:3.9-buster AS base
 
-# Install python
+# Install .NET 5.0 Runtime
+RUN apt-get install -y wget
+RUN wget https://packages.microsoft.com/config/debian/10/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+RUN dpkg -i packages-microsoft-prod.deb
 RUN apt-get update -y
-RUN apt-get install -y python3
+RUN apt-get install -y apt-transport-https
+RUN apt-get update -y
+RUN apt-get install -y aspnetcore-runtime-5.0
+
+WORKDIR /app
 
 # Install JRE 11
 RUN for i in $(seq 1 8); do mkdir -p "/usr/share/man/man${i}"; done

@@ -15,15 +15,17 @@ def extract_name_of_redner(node):
     if titel is not None:
         name += titel.text + " "
 
-    name += vorname.text + " " + nachname.text
+    if vorname is not None:
+        name += vorname.text + " "
+        
+    if nachname is not None:
+        name += nachname.text
 
     if fraktion is not None:
         name += " (" + fraktion.text + ")"
 
     if rolle is not None:
         name += ", " + rolle.text
-
-    name += ": "
 
     return name
 
@@ -34,7 +36,7 @@ def get_inhaltspunkte(dokument):
     blocks = dokument.find(".//inhaltsverzeichnis")
 
     for idx, i in enumerate(blocks):
-        if i.tag == "ivz-block":# and i[0].text[-1] == ":":
+        if i.tag == "ivz-block":
             tmp.append(i)
         elif i.tag == "ivz-eintrag" and i[0].text == "in Verbindung mit":
             tmp.append("+")
@@ -79,17 +81,18 @@ def get_reden(inhaltspunkt, datum):
 
     for punkt in inhaltspunkt:
         for i in punkt.findall("./ivz-eintrag"):
-            if len(i) == 2 and len(i[0]) == 1:
+            if len(i) >= 2 and len(i[0]) == 1:
                 reden.append(i)
 
     for i in reden:
-        rede_id = i.find(".//xref")
+        rede_ids = i.findall(".//xref")
 
-        if rede_id != None:
-            rid = rede_id.get("rid")
-            rede = r.rede(title, datum)
-            rede.title = title_long
-            result[rid] = rede
+        if rede_ids:
+            for rede_id in rede_ids:
+                rid = rede_id.get("rid")
+                rede = r.rede(title, datum)
+                rede.title = title_long
+                result[rid] = rede
     
     return result
 
@@ -100,7 +103,7 @@ def get_text(rede):
             text += p.text + " "
 
         if "klasse" in p.attrib and p.attrib["klasse"] == "redner":
-            text += extract_name_of_redner(p)
+            text += extract_name_of_redner(p) + ": "
 
     text = text.replace("\n", " ")
     text = text.replace("\t", "")
@@ -109,7 +112,7 @@ def get_text(rede):
 
 def get_text_und_redner(rede):
     rid = rede.attrib["id"]
-    redner = rede.find(".//vorname").text + " "  + rede.find(".//nachname").text
+    redner = extract_name_of_redner(rede)
     affiliation = rede.find(".//fraktion")
     if affiliation is None:
         affiliation = rede.find(".//rolle_lang")
@@ -128,6 +131,8 @@ def fill_reden(reden, dokument):
 
     for t in texte:
         rid, redner, affiliation, text = get_text_und_redner(t)
+        if rid not in reden:
+            reden[rid] = r.rede("", datum)
         reden[rid].speaker=redner
         reden[rid].affiliation = affiliation
         reden[rid].text = text

@@ -13,7 +13,10 @@ class rede:
         _, short = self.remove_kategorie(title)
         short = self.assemble_subtitles(short)
         short = " ".join([self.remove_prefix(i) for i in short])
-        return short
+        if short == "":
+            return title
+        else:
+            return short
 
     def remove_kategorie(self, title):
         kategorie = ""

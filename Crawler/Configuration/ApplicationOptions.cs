@@ -6,6 +6,8 @@
 
         public long InitialDelay { get; set; }
 
+        public int MaximumBatchSize { get; set; }
+
         // MongoDb
         public string MongoConnectionString { get; set; }
         public string MongoDatabase { get; set; }

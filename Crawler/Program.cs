@@ -104,6 +104,14 @@ namespace Crawler
                 .ConfigureLogging((context, logging) =>
                 {
                     logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.None);
+
+                    logging.AddSimpleConsole(options =>
+                    {
+                        options.IncludeScopes = false;
+                        options.SingleLine = true;
+                        options.ColorBehavior = Microsoft.Extensions.Logging.Console.LoggerColorBehavior.Enabled;
+                        options.TimestampFormat = "hh:mm:ss ";
+                    });
                 });
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Crawler.Configuration;
 using Crawler.Domain.Entities;
 using Crawler.Exceptions;
+using Crawler.Extensions;
 using Crawler.Persistence.Mongo;
 using Crawler.Protocols.Downloading;
 using Crawler.Protocols.Indexing;
@@ -42,6 +43,11 @@ namespace Crawler
             _options = options;
             _logger = logger;
             _textExtractors = textExtractors;
+
+            if (_options.Value.MaximumBatchSize <= 0)
+            {
+                throw new CrawlerException("MaximumBatchSize must be atleast set to 1.");
+            }
 
             // Attempt to parse the cron expression
             try
@@ -181,6 +187,11 @@ namespace Crawler
 
                     _logger.LogInformation($"Working on {uri}..");
 
+                    // This variable is used to determine whether we should mark "identifier" as indexed at the end of this run.
+                    // We might NOT want to mark it as indexed if there was an error with atleast one protocol (e.g. its invalid, or couldnt be saved), so that we will
+                    // retry on the next scheduled run of the crawler.
+                    bool markResourceAsIndexed = true;
+
                     // We might get back multiple protocol files here, because the download might be a zip!
                     _logger.LogInformation($"Downloading from uri and extracting..");
                     var protocolFileContents = providerService.GetRawProtocolsAsync(uri, _cancellationTokenSource.Token);
@@ -190,14 +201,14 @@ namespace Crawler
                         _logger.LogInformation($"Working on file {protocolFileName}..");
 
                         // All protocols that were extracted from this specific text file.
-                        IEnumerable<Protocol> protocols = new List<Protocol>();
+                        List<Protocol> protocols = new List<Protocol>();
 
                         // Find a suitable text extractor for this protocol format
                         foreach (var extractor in _textExtractors)
                         {
                             if (extractor.HandlesProtocolFile(protocolFileContent))
                             {
-                                protocols = await extractor.ParseRawProtocolAsync(protocolFileContent);
+                                protocols = (await extractor.ParseRawProtocolAsync(protocolFileContent))?.ToList();
                             }
                         }
 
@@ -207,43 +218,136 @@ namespace Crawler
                             throw new CrawlerException($"Found no text extractor that handles this protocol file!");
                         }
 
-                        _logger.LogInformation($"Extracted {protocols.Count()} protocols from file {protocolFileName}.");
+                        _logger.LogInformation($"Extracted {protocols.Count} protocols from file {protocolFileName}.");
                         allProtocolsOfContainer.AddRange(protocols);
                     }
 
                     _logger.LogInformation($"{allProtocolsOfContainer.Count()} protocols have been extracted in total from {uri}.");
-                    _logger.LogInformation($"Saving protocols to MongoDB storage..");
+
+                    // Check each protocol if is has already been indexed and exclude it
+                    // ALSO exclude empty documents with invalid data!!
+                    var tmpProtocols = new List<Protocol>();
+
+                    _logger.LogInformation("Checking for already indexed or invalid protocols..");
+
+                    // For displaying informational texts
+                    int amountInvalidProtocols = 0;
+                    int amountAlreadyIndexedProtocols = 0;
 
                     foreach (var protocol in allProtocolsOfContainer)
                     {
-                        protocol.Id = Guid.NewGuid().ToString();
+                        // Create a hash of the protocol text content and check if we have already indexed this
+                        var hash = trackingService.Hash(protocol.Text);
+                        var isInvalid = string.IsNullOrWhiteSpace(protocol.Speaker) || string.IsNullOrWhiteSpace(protocol.Title) || string.IsNullOrWhiteSpace(protocol.Text);
 
-                        await mongo.AddProtocolAsync(protocol);
+                        if (isInvalid)
+                        {
+                            //_logger.LogWarning($"Parsed protocol was invalid (empty text). Skipping. This resource will be reattempted again.");
+                            amountInvalidProtocols++;
+                            markResourceAsIndexed = false;
+
+                            continue;
+                        }
+
+                        if (await trackingService.IsIndexedAsync(hash))
+                        {
+                            //_logger.LogInformation("Parsed protocol was already indexed. Skipping.");
+                            amountAlreadyIndexedProtocols++;
+
+                            continue;
+                        }
+
+                        tmpProtocols.Add(protocol);
                     }
 
-                    // Send the procotols to the indexing api
-                    _logger.LogInformation($"Saving protocols to indexing cluster..");
-                    await indexApi.IndexAsync(allProtocolsOfContainer);
+                    if (amountInvalidProtocols > 0) _logger.LogWarning($"{amountInvalidProtocols} invalid protocols will have to be reattempted.");
+                    if (amountAlreadyIndexedProtocols > 0) _logger.LogInformation($"{amountAlreadyIndexedProtocols} already indexed protocols of this resource will be skipped.");
+
+                    allProtocolsOfContainer = tmpProtocols;
+
+                    _logger.LogInformation("Splitting protocols into chunks..");
+
+                    // Put all protocols into a queue so we can work on it in chunks
+                    var chunks = allProtocolsOfContainer.Split(_options.Value.MaximumBatchSize).ToList();
+                    int chunksAmount = chunks.Count;
+                    int currentChunkNumber = 1;
+
+                    if (chunks.Count > 0)
+                    {
+                        _logger.LogInformation($"Split into {chunks.Count} chunks.");
+
+                        foreach (var chunk in chunks)
+                        {
+                            var chunkProtocols = chunk.ToList();
+
+                            try
+                            {
+                                _logger.LogInformation($"Working on chunk {currentChunkNumber} out of {chunksAmount}..");
+                                _logger.LogInformation($"[Chunk {currentChunkNumber}/{chunksAmount}] Took {chunkProtocols.Count} protocols for this chunk.");
+                                _logger.LogInformation($"[Chunk {currentChunkNumber}/{chunksAmount}] Saving protocols of chunk to MongoDB storage and marking each as indexed..");
+
+                                foreach (var protocol in chunkProtocols)
+                                {
+                                    protocol.Id = Guid.NewGuid().ToString();
+
+                                    await mongo.AddProtocolAsync(protocol);
+
+                                    // Mark this uri as done so we skip it entirely next time
+                                    var protocolIdentifier = trackingService.Hash(protocol.Text);
+
+                                    await trackingService.MarkAsIndexedAsync(protocolIdentifier);
+                                }
+
+                                // Send the procotols to the indexing api
+                                _logger.LogInformation($"[Chunk {currentChunkNumber}/{chunksAmount}] Saving protocols of chunk to indexing cluster..");
+                                await indexApi.IndexAsync(chunkProtocols);
+
+                                _logger.LogInformation($"[Chunk {currentChunkNumber}/{chunksAmount}] Chunk completed successfully.");
+                            }
+                            catch (Exception ex)
+                            {
+                                markResourceAsIndexed = false;
+
+                                _logger.LogError(ex, $"Error occurred while attempting to work on {chunkProtocols.Count} protocols of the current chunk. View the enclosed exception for more details. Changes have been rolled back. All protocols of this chunk will be reattempted next run.");
+
+                                // Cleanup mongo db from all protocols of the failed chunk we might have already saved
+                                foreach (var protocol in chunkProtocols)
+                                {
+                                    await mongo.RemoveProtocolAsync(protocol);
+
+                                    // Make sure we will attempt to index each protocol of the chunk again next time
+                                    var protocolIdentifier = trackingService.Hash(protocol.Text);
+                                    await trackingService.UnmarkAsIndexedAsync(protocolIdentifier);
+                                }
+                            }
+
+                            currentChunkNumber++;
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"No chunks created because there are no protocols to work on.");
+                    }
+
+                    if (markResourceAsIndexed)
+                    {
+                        await trackingService.MarkAsIndexedAsync(identifier);
+                        _logger.LogInformation($"All protocols of {uri} completed without issues. The resource has been marked as indexed.");
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"Atleast one protocol of the resource {uri} failed to index. Not saving this resource as indexed. All failed protocols will be reattempted next run.");
+                    }
 
 
-                    // Mark this uri as done so we skip it entirely next time
-                    _logger.LogInformation($"Marking {uri} has completely indexed..");
-                    await trackingService.MarkAsIndexedAsync(identifier);
-
-                    _logger.LogInformation($"Completed work on {uri}.");
                 }
                 catch (Exception ex)
                 {
-                    // Cleanup mongo db from all protocols we might have already saved
-                    foreach (var protocol in allProtocolsOfContainer)
-                    {
-                        await mongo.RemoveProtocolAsync(protocol);
-                    }
-
-                    // Make sure we will attempt to index again next time
+                    // If we got here, make sure we mark this entire resource as not indexed. We will thus attempt to reindex it entirely next time. Any chunk
+                    // that might have successfully indexed will be skipped, so no duplicates will be created regardless!
                     await trackingService.UnmarkAsIndexedAsync(identifier);
 
-                    _logger.LogError(ex, $"Error occurred while attempting to work on the protocols file(s) of {uri}. View the enclosed exception for more details. MongoDB and local tracking database have been rolled back.");
+                    _logger.LogError(ex, $"Error occurred while attempting to work on the protocols file(s) of {uri}. View the enclosed exception for more details. MongoDB and local tracking database have been rolled back where necessary.");
                 }
             }
         }

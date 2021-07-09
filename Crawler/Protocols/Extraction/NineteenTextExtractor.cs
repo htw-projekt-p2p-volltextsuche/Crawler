@@ -45,7 +45,7 @@ namespace Crawler.Protocols.Extraction
                     Arguments = $"text-extraction19.py {inputFile}"
                 };
 
-                _logger.LogInformation(Environment.NewLine + "---------- OUTPUT OF EXTRACTOR ---------- " + Environment.NewLine);
+                _logger.LogInformation(Environment.NewLine + "OUTPUT OF EXTRACTOR --------------------- " + Environment.NewLine);
                 Process p = Process.Start(psi);
 
                 await p.WaitForExitAsync();

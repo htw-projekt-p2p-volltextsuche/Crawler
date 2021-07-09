@@ -30,6 +30,9 @@ Application settings can be changed either by mounting a `appsettings.json` file
   // One time delay in seconds before the Crawler will evaluate the interval CRON expression and run according to the given "Interval" schedule
   "InitialDelay": 0,
 
+  // Maximum batch size in which documents will be POSTed to the indexing api endpoint
+  "MaximumBatchSize": 5,
+
   // Database which will be used to save speeches
   "MongoConnectionString": "mongodb://localhost:8430",
   "MongoDatabase": "crawler",

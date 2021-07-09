@@ -29,10 +29,10 @@ namespace Crawler.Protocols.Indexing
             var client = new HttpClient();
             var url = $"{_options.Value.IndexingApiEndpoint}/index/speeches";
 
-            _logger.LogInformation($"Sending POST with {protocols.Count()} protocols to {url}..");
+            _logger.LogTrace($"Sending POST with {protocols.Count()} protocols to {url}..");
             var response = await client.PostAsJsonAsync(url, protocols, CancellationToken.None);
 
-            _logger.LogInformation($"Returned status code = {response.StatusCode}.");
+            _logger.LogTrace($"Returned status code = {response.StatusCode}.");
             response.EnsureSuccessStatusCode();
         }
     }

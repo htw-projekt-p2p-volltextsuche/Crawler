@@ -47,7 +47,7 @@ namespace Crawler.Protocols.Extraction
                     Arguments = $"-jar textextraction-18.jar \"{inputFile}\""
                 };
 
-                _logger.LogInformation(Environment.NewLine + "---------- OUTPUT OF EXTRACTOR ---------- " + Environment.NewLine);
+                _logger.LogInformation(Environment.NewLine + "OUTPUT OF EXTRACTOR --------------------- " + Environment.NewLine);
                 Process p = Process.Start(psi);
 
                 await p.WaitForExitAsync();
