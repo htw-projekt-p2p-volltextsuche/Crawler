@@ -322,6 +322,13 @@ namespace Crawler
                             }
 
                             currentChunkNumber++;
+
+                            if (_options.Value.ChunkDelay > 0)
+                            {
+                                _logger.LogInformation($"Waiting for {_options.Value.ChunkDelay} second(s) before working on the next chunk..");
+
+                                await Task.Delay(TimeSpan.FromSeconds(_options.Value.ChunkDelay), cancellationToken: _cancellationTokenSource.Token);
+                            }
                         }
                     }
                     else

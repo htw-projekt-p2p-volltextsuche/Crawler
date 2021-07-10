@@ -30,11 +30,14 @@ Application settings can be changed either by mounting a `appsettings.json` file
   // One time delay in seconds before the Crawler will evaluate the interval CRON expression and run according to the given "Interval" schedule
   "InitialDelay": 0,
 
+  // Delay in seconds in between HTTP calls to the indexing api to save a chunk of protocols
+  "ChunkDelay": 0,
+
   // Maximum batch size in which documents will be POSTed to the indexing api endpoint
   "MaximumBatchSize": 5,
 
   // Database which will be used to save speeches
-  "MongoConnectionString": "mongodb://localhost:8430",
+  "MongoConnectionString": "mongodb://0.0.0.0:8430",
   "MongoDatabase": "crawler",
   "MongoCollection": "protocols",
 
@@ -42,7 +45,10 @@ Application settings can be changed either by mounting a `appsettings.json` file
   "LocalDbConnectionString": "Data Source=data/local.db",
 
   // Indexing api endpoint (without a trailing slash!)
-  "IndexingApiEndpoint": "http://0.0.0.0:8421/api"
+  "IndexingApiEndpoint": "http://0.0.0.0:8421/api",
+
+  // Timeout of the HTTP request to the api endpoints in seconds
+  "IndexingApiTimeout": 300
 }
 ```
 

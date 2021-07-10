@@ -6,6 +6,8 @@
 
         public long InitialDelay { get; set; } = 0;
 
+        public long ChunkDelay { get; set; } = 0;
+
         public int MaximumBatchSize { get; set; } = 100;
 
         // MongoDb
