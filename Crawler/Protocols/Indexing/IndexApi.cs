@@ -4,6 +4,7 @@ using Crawler.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -27,6 +28,9 @@ namespace Crawler.Protocols.Indexing
         public async Task IndexAsync(IEnumerable<Protocol> protocols)
         {
             var client = new HttpClient();
+
+            client.Timeout = TimeSpan.FromSeconds(_options.Value.IndexingApiTimeout);
+
             var url = $"{_options.Value.IndexingApiEndpoint}/index/speeches";
 
             _logger.LogTrace($"Sending POST with {protocols.Count()} protocols to {url}..");
