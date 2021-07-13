@@ -70,8 +70,8 @@ The crawler connects to a MongoDB database for easy access of extracted speeches
     // Affiliation of the speaker. This can be his/her role in the Bundestag or for example his party.
     "affiliation": "string",
 
-    // Date of the speech in the format dd.mm.yyyy
-    "date": "dd-mm-yyyy",
+    // Date of the speech in the format yyyy-mm-dd
+    "date": "yyyy-mm-dd",
 
     // Entire processed content of the speech.
     "text": "string"
