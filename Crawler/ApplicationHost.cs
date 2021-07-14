@@ -233,6 +233,7 @@ namespace Crawler
                     // For displaying informational texts
                     int amountInvalidProtocols = 0;
                     int amountAlreadyIndexedProtocols = 0;
+                    List<string> hashesToBeAdded = new();
 
                     foreach (var protocol in allProtocolsOfContainer)
                     {
@@ -249,6 +250,13 @@ namespace Crawler
                             continue;
                         }
 
+                        if (hashesToBeAdded.Contains(hash))
+                        {
+                            _logger.LogWarning("A protocol resulted in the same hash as different one from this resource and will be skipped.");
+
+                            continue;
+                        }
+
                         if (await trackingService.IsIndexedAsync(hash))
                         {
                             //_logger.LogInformation("Parsed protocol was already indexed. Skipping.");
@@ -257,6 +265,7 @@ namespace Crawler
                             continue;
                         }
 
+                        hashesToBeAdded.Add(hash);
                         tmpProtocols.Add(protocol);
                     }
 

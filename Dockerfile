@@ -20,10 +20,6 @@ RUN apt-get install -y default-jre
 FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
 WORKDIR /src
 
-# Copy python files used for extraction
-COPY ["rede.py", ""]
-COPY ["text-extraction19.py", ""]
-
 # Copy and build project
 COPY ["Crawler/Crawler.csproj", "Crawler/"]
 RUN dotnet restore "Crawler/Crawler.csproj"

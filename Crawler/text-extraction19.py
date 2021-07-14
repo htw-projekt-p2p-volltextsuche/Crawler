@@ -157,7 +157,7 @@ for i in inhaltspunkte:
 fill_reden(reden, root)
 x = list(reden.values())
 
-y = [i.__dict__ for i in x]
+y = [i.__dict__ for i in x if i.text != ""]
 
 with io.open(filename[:-4] + ".json", "w+", encoding="utf-8") as f:
     json.dump(y, f, ensure_ascii=False, indent=" ")
