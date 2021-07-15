@@ -21,12 +21,6 @@ def extract_name_of_redner(node):
     if nachname is not None:
         name += nachname.text
 
-    if fraktion is not None:
-        name += " (" + fraktion.text + ")"
-
-    if rolle is not None:
-        name += ", " + rolle.text
-
     return name
 
 def get_inhaltspunkte(dokument):
